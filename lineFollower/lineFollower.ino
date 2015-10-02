@@ -25,76 +25,108 @@ const byte leftTarget = 10;
 const byte rightTarget = 10;
 int leftIR;
 int rightIR;
-byte leftMotorSpeed;
-byte rightMotorSpeed;
+int leftMotorSpeed;
+int rightMotorSpeed;
 
-const int leftNumReadings = 100; 
-const int rightNumReadings = 100;
-int leftReadings[leftNumReadings]; //array of saved analog read inputs
-int leftReadIndex = 0; //Index of leftReadings
-int leftSum = 0; //use for integral
-int rightReadings[leftNumReadings]; //array of saved analog read inputs
-int rightReadIndex = 0; //Index of leftReadings
-int rightSum = 0; //use for integral
-int leftAverage = 0;
-int rightAverage = 0;
-byte
-
+byte currentIndex = 0;
+const int numReadings = 100;
+byte leftReadings[numReadings]; //array of saved analog read inputs
+byte rightReadings[numReadings]; //array of saved analog read inputs
+int leftReadingSum = 0; //use for integral
+int rightReadingSum = 0; //use for integral
+float leftAverage = 0.0;
+float rightAverage = 0.0;
+byte leftError;
+byte rightError;
+byte leftErrors[numReadings];
+byte rightErrors[numReadings];
+int leftIntegral;
+int rightIntegral;
+int timeDelay = 100;
 
 void setup() {
   // Open serial
   Serial.begin(9600);
-  for (int leftThisReading = 0; leftThisReading < leftNumReadings; leftThisReading ++){
-    leftReadings[leftThisReading] = 0;
-  }
-  for (int rightThisReading = 0; rightThisReading < rightNumReadings; rightThisReading ++){
-    rightReadings[rightThisReading] = 0;
+  
+  // Fill arrays with zeroes
+  for (byte currentReading = 0; currentReading < numReadings; currentReading ++){
+    leftReadings[currentReading] = 0;
+    rightReadings[currentReading] = 0;
+    leftErrors[currentReading] = 0;
+    rightErrors[currentReading] = 0;
   }
 }
 
 void loop() {
   // Define IR leftReadings
-  leftIR = map(analogRead(leftIRPin), 60, 930, 100, 255);
-  rightIR = map(analogRead(rightIRPin), 60, 930, 100, 255);
+  leftIR = map(analogRead(leftIRPin), 60, 930, 0, 255);
+  rightIR = map(analogRead(rightIRPin), 60, 930, 0, 255);
+  
+  // Subtract old reading from sums
+  leftReadingSum -= leftReadings[currentIndex];
+  rightReadingSum -= rightReadings[currentIndex];
+  
+  leftError = leftTarget- leftReadings[currentIndex];
+  rightError = rightTarget - rightReadings[currentIndex];
+  
+  leftErrorSum -= leftError;
+  rightErrorSum -= rightError;
   
   // Add readings to arrays
-  leftReadings[leftReadIndex] = leftIR;
-  rightReadings[rightReadIndex] = rightIR;
+  leftReadings[currentIndex] = leftIR;
+  rightReadings[currentIndex] = rightIR;
   
-  // Subtract previous point
-  leftSum = leftSum - leftReadings[leftReadIndex];
-  rightSum = rightSum - rightReadings[rightReadIndex];
+  // Add new reading to sums
+  leftReadingSum += leftReadings[currentIndex];
+  rightReadingSum += rightReadings[currentIndex];
   
-  // Advancing in the array
-  leftReadIndex = leftReadIndex + 1;
-  rightReadIndex = rightReadIndex + 1;
+  // Increment array positions
+  currentIndex ++;
+  currentIndex ++;
   
   // Revert to beginning of array if index out of bounds
-  if (leftReadIndex >= leftNumReadings){
-      leftReadIndex = 0; //wraps to beginning
+  if (currentIndex >= numReadings){
+      currentIndex = 0;
   }
-  if (rightReadIndex >= rightNumReadings){
-      rightReadIndex = 0; //wraps to beginning
+  if (currentIndex >= numReadings){
+      currentIndex = 0;
   }
   
-  // Calculate averages
-  leftAverage = leftSum/leftNumReadings;
-  rightAverage = rightSum/rightNumReadings;
-  delay(1);
-
-  // Define left motor speed
-  if (round(rightIR * P <= 255)) {
-    leftMotorSpeed = round(rightIR * P);
-  } else {
+  // Calculate reading averages
+  leftAverage = leftReadingSum/float(numReadings);
+  rightAverage = rightReadingSum/float(numReadings);
+  
+  // Calculate error
+  leftError = leftTarget - leftReadings[currentIndex];
+  rightError = rightTarget - rightReadings[currentIndex];
+  
+  // Calculate integral
+  leftIntegral = leftErrorSum * (timeDelay/1000.0);
+  rightIntegral = rightErrorSum * (timeDelay/1000.0);
+  
+  // Calculate past reading indices
+  if (currentIndex - 1 >= 0)
+    pastIndex = currentIndex - 1;
+  else
+    pastIndex = currentIndex -1 + 10;
+  if (currentIndex - 2 >= 0)
+    pastPastIndex = currentIndex - 2;
+  else
+    pastPastIndex = currentIndex -2 + 10;
+  
+  // Calculate derivatives
+  leftDeriv = (leftReading[pastIndex] - leftReading[pastPastIndex]) * (timeDelay/1000.0);
+  rightDeriv = (rightReading[pastIndex] - rightReading[pastPastIndex]) * (timeDelay/1000.0);
+  
+  // Define motor speeds
+  leftMotorSpeed = P*rightError + I*rightIntegral + D*rightDeriv;
+  rightMotorSpeed = P*leftError + I*leftIntegral + D*leftDeriv;
+  
+  if (leftMotorSpeed > 255)
     leftMotorSpeed = 255;
-  }
 
-  // Define right motor speed
-  if (round(leftIR * P <= 255)) {
-    rightMotorSpeed = round(leftIR * P);
-  } else {
+  if (rightMotorSpeed > 255)
     rightMotorSpeed = 255;
-  }
 
   // Set motor direction
   myLeftMotor->run(FORWARD);
@@ -103,7 +135,6 @@ void loop() {
   // Set motor speed
   myLeftMotor->setSpeed(leftMotorSpeed);
   myRightMotor->setSpeed(rightMotorSpeed);
+  
+  delay(timeDelay);
 }
-
-
-
