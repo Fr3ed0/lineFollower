@@ -1,0 +1,24 @@
+20k Ohm
+white: 46
+black: 730
+difference: 684
+
+10k Ohm
+white: 44
+black: 830
+difference: 786
+
+4.75k Ohm
+white: 60
+black: 930
+difference: 870
+
+2.87k Ohm
+white: 230
+black: 970
+difference: 740
+
+1.15k Ohm
+white: 700
+black: 990
+difference: 290
