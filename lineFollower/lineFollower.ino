@@ -29,6 +29,8 @@ int leftMotorSpeed;
 int rightMotorSpeed;
 
 byte currentIndex = 0;
+byte pastIndex;
+byte pastPastIndex;
 const int numReadings = 100;
 byte leftReadings[numReadings]; //array of saved analog read inputs
 byte rightReadings[numReadings]; //array of saved analog read inputs
@@ -40,8 +42,12 @@ byte leftError;
 byte rightError;
 byte leftErrors[numReadings];
 byte rightErrors[numReadings];
+int leftErrorSum = 0;
+int rightErrorSum = 0;
 int leftIntegral;
 int rightIntegral;
+int leftDeriv;
+int rightDeriv;
 int timeDelay = 100;
 
 void setup() {
@@ -61,6 +67,8 @@ void loop() {
   // Define IR leftReadings
   leftIR = map(analogRead(leftIRPin), 60, 930, 0, 255);
   rightIR = map(analogRead(rightIRPin), 60, 930, 0, 255);
+  
+  Serial.println(String(leftIR) + " " + String(rightIR));
   
   // Subtract old reading from sums
   leftReadingSum -= leftReadings[currentIndex];
@@ -115,8 +123,8 @@ void loop() {
     pastPastIndex = currentIndex -2 + 10;
   
   // Calculate derivatives
-  leftDeriv = (leftReading[pastIndex] - leftReading[pastPastIndex]) * (timeDelay/1000.0);
-  rightDeriv = (rightReading[pastIndex] - rightReading[pastPastIndex]) * (timeDelay/1000.0);
+  leftDeriv = (leftReadings[pastIndex] - leftReadings[pastPastIndex]) * (timeDelay/1000.0);
+  rightDeriv = (rightReadings[pastIndex] - rightReadings[pastPastIndex]) * (timeDelay/1000.0);
   
   // Define motor speeds
   leftMotorSpeed = P*rightError + I*rightIntegral + D*rightDeriv;
