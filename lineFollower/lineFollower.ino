@@ -138,22 +138,20 @@ void loop() {
     pastPastIndex = currentIndex -2 + 10;
   
   // Calculate derivatives
-<<<<<<< HEAD
-  leftDeriv = (leftReading[pastIndex] - leftReading[pastPastIndex]) * (timeDelay/1000.0);
-  rightDeriv = (rightReading[pastIndex] - rightReading[pastPastIndex]) * (timeDelay/1000.0);
+  leftDeriv = (leftReadings[pastIndex] - leftReadings[pastPastIndex]) * (timeDelay/1000.0);
+  rightDeriv = (rightReadings[pastIndex] - rightReadings[pastPastIndex]) * (timeDelay/1000.0);
 
   //Get user input for P
-  serialEvent()
+  serialEvent();
   if (stringComplete){
     Serial.println(inputString);
     P = inputString;
     inputString = "";         //reset the string to empty
     stringComplete = false;   //reset the complete boolean to false
   }
-=======
+
   leftDeriv = (leftReadings[pastIndex] - leftReadings[pastPastIndex]) * (timeDelay/1000.0);
   rightDeriv = (rightReadings[pastIndex] - rightReadings[pastPastIndex]) * (timeDelay/1000.0);
->>>>>>> origin/master
   
   // Define motor speeds
 //  leftMotorSpeed = P*rightError + I*rightIntegral + D*rightDeriv;
