@@ -64,11 +64,13 @@ void setup() {
 }
 
 void loop() {
-  // Define IR leftReadings
-  leftIR = map(analogRead(leftIRPin), 60, 930, 0, 255);
-  rightIR = map(analogRead(rightIRPin), 60, 930, 0, 255);
+//  // Define IR leftReadings
+//  leftIR = map(analogRead(leftIRPin), 60, 930, 0, 255);
+//  rightIR = map(analogRead(rightIRPin), 60, 930, 0, 255);
+  leftIR = analogRead(leftIRPin);
   
-  Serial.println(String(leftIR) + " " + String(rightIR));
+//  Serial.println(String(leftIR) + " " + String(rightIR));
+  Serial.println(leftIR);
   
   // Subtract old reading from sums
   leftReadingSum -= leftReadings[currentIndex];
@@ -127,8 +129,10 @@ void loop() {
   rightDeriv = (rightReadings[pastIndex] - rightReadings[pastPastIndex]) * (timeDelay/1000.0);
   
   // Define motor speeds
-  leftMotorSpeed = P*rightError + I*rightIntegral + D*rightDeriv;
-  rightMotorSpeed = P*leftError + I*leftIntegral + D*leftDeriv;
+//  leftMotorSpeed = P*rightError + I*rightIntegral + D*rightDeriv;
+//  rightMotorSpeed = P*leftError + I*leftIntegral + D*leftDeriv;
+  leftMotorSpeed = P*rightError;
+  rightMotorSpeed = P*leftError;
   
   if (leftMotorSpeed > 255)
     leftMotorSpeed = 255;
