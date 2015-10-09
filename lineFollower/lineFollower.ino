@@ -17,6 +17,10 @@ Adafruit_DCMotor *myRightMotor = AFMS.getMotor(1);
 int leftIRPin = A0;
 int rightIRPin = A1;
 
+// Define variables needed for serialEvent()
+String inputString = "";          //a string that reads in the inputted characters one by one
+boolean stringComplete = false;   //set to true when a new line character is detected and the string is over
+
 // Initialize variables
 const float P = .15;
 const float I = 0;
@@ -58,6 +62,7 @@ int timeDelay = 100;
 void setup() {
   // Open serial
   Serial.begin(9600);
+  inputString.reserve(200);   //save some space on the Arduino for the user inputted string
   
   AFMS.begin();
   
@@ -133,8 +138,22 @@ void loop() {
     pastPastIndex = currentIndex -2 + 10;
   
   // Calculate derivatives
+<<<<<<< HEAD
+  leftDeriv = (leftReading[pastIndex] - leftReading[pastPastIndex]) * (timeDelay/1000.0);
+  rightDeriv = (rightReading[pastIndex] - rightReading[pastPastIndex]) * (timeDelay/1000.0);
+
+  //Get user input for P
+  serialEvent()
+  if (stringComplete){
+    Serial.println(inputString);
+    P = inputString;
+    inputString = "";         //reset the string to empty
+    stringComplete = false;   //reset the complete boolean to false
+  }
+=======
   leftDeriv = (leftReadings[pastIndex] - leftReadings[pastPastIndex]) * (timeDelay/1000.0);
   rightDeriv = (rightReadings[pastIndex] - rightReadings[pastPastIndex]) * (timeDelay/1000.0);
+>>>>>>> origin/master
   
   // Define motor speeds
 //  leftMotorSpeed = P*rightError + I*rightIntegral + D*rightDeriv;
@@ -167,4 +186,24 @@ void loop() {
   myRightMotor->run(BACKWARD);
   
   delay(timeDelay);
+}
+
+/*
+  SerialEvent occurs whenever a new data comes in the
+ hardware serial RX.  This routine is run between each
+ time loop() runs, so using delay inside loop can delay
+ response.  Multiple bytes of data may be available.
+ */
+void serialEvent() {
+  while (Serial.available()) {
+    // get the new byte:
+    char inChar = (char)Serial.read();
+    // add it to the inputString:
+    inputString += inChar;
+    // if the incoming character is a newline, set a flag
+    // so the main loop can do something about it:
+    if (inChar == '\n') {
+      stringComplete = true;
+    }
+  }
 }
