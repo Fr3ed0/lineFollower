@@ -10,42 +10,45 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 Adafruit_DCMotor *myLeftMotor = AFMS.getMotor(2);
 Adafruit_DCMotor *myRightMotor = AFMS.getMotor(1);
 
-// Define sensor and motor pins
+// Define sensor pins
 int leftIRPin = A0;
 int rightIRPin = A1;
 
-// Initialize variables
-const float P = .15;
+// Initialize state variables
 int leftIR;
 int rightIR;
-int leftAdjust = 800;
-int rightAdjust = 800;
-int adjustCoeff = 1.092;
 int leftMotorSpeed;
 int rightMotorSpeed;
+
+// Initialze control loop variables
+const float P = .15;
+int baseAdjust = 800;
+int adjustCoeff = 1.06;
 int baseSpeed = 30;
 
 void setup() {
   // Open serial
   Serial.begin(9600);
   
+  // Begin motor control
   AFMS.begin();
 }
 
 void loop() {
 //  // Define IR leftReadings
-  leftIR = analogRead(leftIRPin)-leftAdjust;
-  rightIR = analogRead(rightIRPin)*1.06-rightAdjust;
+  leftIR = analogRead(leftIRPin)-baseAdjust;
+  rightIR = analogRead(rightIRPin)*adjustCoeff-baseAdjust;
 
   // Define motor speeds
   leftMotorSpeed = baseSpeed + P*rightIR;
   rightMotorSpeed = baseSpeed + P*leftIR;
   
+  // Bound motor speeds between 0 and 255
   if (leftMotorSpeed > 255)
     leftMotorSpeed = 255;
   else if (leftMotorSpeed < 0)
     leftMotorSpeed = 0;
-  
+
   if (rightMotorSpeed > 255)
     rightMotorSpeed = 255;
   else if (rightMotorSpeed < 0)
