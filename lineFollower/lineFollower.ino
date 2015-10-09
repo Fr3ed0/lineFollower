@@ -7,8 +7,8 @@
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 
 // Assign motors to ports
-Adafruit_DCMotor *myLeftMotor = AFMS.getMotor(1);
-Adafruit_DCMotor *myRightMotor = AFMS.getMotor(2);
+Adafruit_DCMotor *myLeftMotor = AFMS.getMotor(2);
+Adafruit_DCMotor *myRightMotor = AFMS.getMotor(1);
 //  myMotor->setSpeed(150);
 //  myMotor->run(FORWARD);
 //  myMotor->run(RELEASE);
@@ -18,13 +18,18 @@ int leftIRPin = A0;
 int rightIRPin = A1;
 
 // Initialize variables
-const float P = 1;
+const float P = .15;
 const float I = 0;
 const float D = 0;
 const byte leftTarget = 10;
 const byte rightTarget = 10;
+int lIR;
+int rIR;
 int leftIR;
 int rightIR;
+int leftAdjust = 800;
+int rightAdjust = 800;
+int adjustCoeff = 1.092;
 int leftMotorSpeed;
 int rightMotorSpeed;
 
@@ -54,6 +59,8 @@ void setup() {
   // Open serial
   Serial.begin(9600);
   
+  AFMS.begin();
+  
   // Fill arrays with zeroes
   for (byte currentReading = 0; currentReading < numReadings; currentReading ++){
     leftReadings[currentReading] = 0;
@@ -65,17 +72,22 @@ void setup() {
 
 void loop() {
 //  // Define IR leftReadings
-//  leftIR = map(analogRead(leftIRPin), 60, 930, 0, 255);
-//  rightIR = map(analogRead(rightIRPin), 60, 930, 0, 255);
-  leftIR = analogRead(leftIRPin);
-  
-//  Serial.println(String(leftIR) + " " + String(rightIR));
-  Serial.println(leftIR);
+  lIR = analogRead(leftIRPin);
+  rIR = analogRead(rightIRPin);
+//  leftIR = map(lIR-880, 820, 980, 20, 40);
+//  rightIR = map(rIR-880, 820, 980, 20, 40);
+  leftIR = analogRead(leftIRPin)-leftAdjust;
+  rightIR = analogRead(rightIRPin)*1.06-rightAdjust;
+  Serial.println(String(leftIR) + " " + String(rightIR) + " " + String(leftMotorSpeed) + " " + String(rightMotorSpeed));
+
+//  leftIR = analogRead(leftIRPin)-leftAdjust;
+//  rightIR = analogRead(rightIRPin)-rightAdjust;
   
   // Subtract old reading from sums
   leftReadingSum -= leftReadings[currentIndex];
   rightReadingSum -= rightReadings[currentIndex];
   
+  // Calculate Error
   leftError = leftTarget- leftReadings[currentIndex];
   rightError = rightTarget - rightReadings[currentIndex];
   
@@ -106,10 +118,6 @@ void loop() {
   leftAverage = leftReadingSum/float(numReadings);
   rightAverage = rightReadingSum/float(numReadings);
   
-  // Calculate error
-  leftError = leftTarget - leftReadings[currentIndex];
-  rightError = rightTarget - rightReadings[currentIndex];
-  
   // Calculate integral
   leftIntegral = leftErrorSum * (timeDelay/1000.0);
   rightIntegral = rightErrorSum * (timeDelay/1000.0);
@@ -131,22 +139,32 @@ void loop() {
   // Define motor speeds
 //  leftMotorSpeed = P*rightError + I*rightIntegral + D*rightDeriv;
 //  rightMotorSpeed = P*leftError + I*leftIntegral + D*leftDeriv;
-  leftMotorSpeed = P*rightError;
-  rightMotorSpeed = P*leftError;
+//  leftMotorSpeed = P*rightError;
+//  rightMotorSpeed = P*leftError;
+  leftMotorSpeed = P*rightIR;
+  rightMotorSpeed = P*leftIR;
   
   if (leftMotorSpeed > 255)
     leftMotorSpeed = 255;
-
+  else if (leftMotorSpeed < 0)
+    leftMotorSpeed = 0;
+  
   if (rightMotorSpeed > 255)
     rightMotorSpeed = 255;
-
-  // Set motor direction
-  myLeftMotor->run(FORWARD);
-  myRightMotor->run(FORWARD);
-
+  else if (rightMotorSpeed < 0)
+    rightMotorSpeed = 0;
+  
   // Set motor speed
+//  myLeftMotor->setSpeed(leftMotorSpeed);
+//  myRightMotor->setSpeed(rightMotorSpeed);
   myLeftMotor->setSpeed(leftMotorSpeed);
   myRightMotor->setSpeed(rightMotorSpeed);
+  
+  // Set motor direction
+//  myLeftMotor->run(FORWARD);
+//  myRightMotor->run(FORWARD);
+  myLeftMotor->run(BACKWARD);
+  myRightMotor->run(BACKWARD);
   
   delay(timeDelay);
 }
