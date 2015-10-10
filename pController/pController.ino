@@ -21,10 +21,10 @@ int leftMotorSpeed;
 int rightMotorSpeed;
 
 // Initialze control loop variables
-const float P = .15;
+const float P = .8;
 int baseAdjust = 800;
-int adjustCoeff = 1.06;
-int baseSpeed = 30;
+float adjustCoeff = 1.2;
+int baseSpeed = 140;
 
 void setup() {
   // Open serial
@@ -37,11 +37,11 @@ void setup() {
 void loop() {
 //  // Define IR leftReadings
   leftIR = analogRead(leftIRPin)-baseAdjust;
-  rightIR = analogRead(rightIRPin)*adjustCoeff-baseAdjust;
+  rightIR = (analogRead(rightIRPin)-baseAdjust)*adjustCoeff;
 
   // Define motor speeds
-  leftMotorSpeed = baseSpeed + P*rightIR;
-  rightMotorSpeed = baseSpeed + P*leftIR;
+  leftMotorSpeed = baseSpeed - P*leftIR;
+  rightMotorSpeed = baseSpeed - P*rightIR;
   
   // Bound motor speeds between 0 and 255
   if (leftMotorSpeed > 255)
@@ -59,8 +59,8 @@ void loop() {
   myRightMotor->setSpeed(rightMotorSpeed);
   
   // Set motor direction
-  myLeftMotor->run(FORWARD);
-  myRightMotor->run(FORWARD);
+  myLeftMotor->run(BACKWARD);
+  myRightMotor->run(BACKWARD);
   
   Serial.println(String(leftIR)+" "+String(rightIR)+" "+String(leftMotorSpeed)+" "+String(rightMotorSpeed));
   
