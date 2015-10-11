@@ -26,21 +26,26 @@ int baseAdjust = 800;
 float adjustCoeff = 1.2;
 int baseSpeed = 140;
 
-// Initialize variables for serial inputting
+// Initialize variables for serial input and output
 char letter;
 long signed int value;
+#define PC_BAUD 250000
+HardwareSerial & pcSer = Serial;
 
 void setup() {
-  // Open serial
+  // Open input serial
   Serial.begin(9600);
   Serial.setTimeout(5);       //time out for parseInt() and things that wait for bytes
+
+  // Open output serial
+  pcSer.begin(PC_BAUD);
 
   // Begin motor control
   AFMS.begin();
 }
 
 void loop() {
-  //  // Define IR leftReadings
+  // Define IR leftReadings
   leftIR = analogRead(leftIRPin) - baseAdjust;
   rightIR = (analogRead(rightIRPin) - baseAdjust) * adjustCoeff;
 
@@ -79,7 +84,19 @@ void loop() {
   myLeftMotor->run(BACKWARD);
   myRightMotor->run(BACKWARD);
 
-  Serial.println(String(leftIR) + " " + String(rightIR) + " " + String(leftMotorSpeed) + " " + String(rightMotorSpeed));
+//  Serial.println(String(leftIR) + " " + String(rightIR) + " " + String(leftMotorSpeed) + " " + String(rightMotorSpeed));
+  sendToSerial(leftIR, rightIR, leftMotorSpeed, rightMotorSpeed);
 
   delay(10);
+}
+
+void sendToSerial(int lIR, int rIR, int lMotor, int rMotor) {
+  // Send IR and motor values through serial delimited by commas
+  pcSer.print(lIR);
+  pcSer.print(", ");
+  pcSer.print(rIR);
+  pcSer.print(", ");
+  pcSer.print(lMotor);
+  pcSer.print(", ");
+  pcSer.println(rMotor);
 }
