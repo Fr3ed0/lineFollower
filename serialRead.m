@@ -1,6 +1,6 @@
 function res = serialRead()
     % Define serial input at usb port COM4
-    s = serial('COM4');
+    s = serial('COM6');
 
     % Define the serial refresh rate and timeout limit
     set(s, 'BaudRate', 250000, 'Timeout', .005);
@@ -13,7 +13,17 @@ function res = serialRead()
         fclose(s); % close serial port
         delete(s); % delete port information
         clear s % remove port data from workspace
-        disp(['Cleaned Up. Last data: ' num2str(serialData)]);
+%         disp(['Cleaned Up. Last data: ' num2str(serialData)]);
+        %Save data to the workspace
+%         assignin('base', 'lIR', lIR);
+%         assignin('base', 'rIR', rIR);
+%         assignin('base', 'lMotor', lMotor);
+%         assignin('base', 'rMotor', rMotor);
+        plot(leftIR, 'r')
+        hold on
+        plot(rightIR, 'b')
+        plot(leftMotor, 'r')
+        plot(rightMotor, 'b')
     end
 
     % Call the cleanup function when code is finished executing
@@ -34,7 +44,7 @@ function res = serialRead()
 
             % Scan the string received through serial for our three
             % important variables (distance, phi, dir)
-            data = sscanf(serialData, '%f, %d, %d');
+            data = sscanf(serialData, '%d, %d, %d, %d');
 
             % If the data receive through serial is empty, then stop serial
             % communication

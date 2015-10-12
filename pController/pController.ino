@@ -23,7 +23,7 @@ int rightMotorSpeed;
 // Initialze control loop variables
 float P = .8;
 int baseAdjust = 800;
-float adjustCoeff = 1.2;
+float adjustCoeff = 1.3;
 int baseSpeed = 140;
 
 // Initialize variables for serial input and output
@@ -34,8 +34,8 @@ HardwareSerial & pcSer = Serial;
 
 void setup() {
   // Open input serial
-  Serial.begin(9600);
-  Serial.setTimeout(5);       //time out for parseInt() and things that wait for bytes
+//  Serial.begin(9600);
+//  Serial.setTimeout(5);       //time out for parseInt() and things that wait for bytes
 
   // Open output serial
   pcSer.begin(PC_BAUD);
@@ -49,17 +49,17 @@ void loop() {
   leftIR = analogRead(leftIRPin) - baseAdjust;
   rightIR = (analogRead(rightIRPin) - baseAdjust) * adjustCoeff;
 
-  //Code that reads inputted values for P I and D; input as p98 (no space)
-  if (Serial.available() > 0) {
-    letter = Serial.read();
-    value = Serial.parseInt();
-    if (value != 0) {
-      if (letter == 'P') {
-        P = value/10.0;
-        Serial.println(P);
-      }
-  }
-}
+//  //Code that reads inputted values for P I and D; input as p98 (no space)
+//  if (Serial.available() > 0) {
+//    letter = Serial.read();
+//    value = Serial.parseInt();
+//    if (value != 0) {
+//      if (letter == 'P') {
+//        P = value/10.0;
+//        Serial.println(P);
+//      }
+//  }
+//}
 
   // Define motor speeds
   leftMotorSpeed = baseSpeed - P * leftIR;
