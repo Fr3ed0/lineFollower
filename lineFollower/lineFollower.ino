@@ -1,207 +1,214 @@
+
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
-#include "utility/Adafruit_PWMServoDriver.h"
 #include <math.h>
 
-// Create motor objects
+//Create the motor shield object with the default I2C address
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 
-// Assign motors to ports
-Adafruit_DCMotor *myLeftMotor = AFMS.getMotor(2);
-Adafruit_DCMotor *myRightMotor = AFMS.getMotor(1);
-//  myMotor->setSpeed(150);
-//  myMotor->run(FORWARD);
-//  myMotor->run(RELEASE);
+// Select which 'port' M1, M2, M3 or M4 the motors go.
+Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);
+Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);
 
-// Define sensor and motor pins
-int leftIRPin = A0;
-int rightIRPin = A1;
+//we will use the #define stuff. ask me about it! DEACTIVATE BEFORE THE RACE STARTS!
+#define DEBUG // if active we are in the DEBUGGING mode, firing all the println guns
+//#define DEBUGSENSOR
 
-// Define variables needed for serialEvent()
-String inputString = "";          //a string that reads in the inputted characters one by one
-boolean stringComplete = false;   //set to true when a new line character is detected and the string is over
+//Sensor pins
+int leftIRPin = A1;
+int rightIRPin = A2;
+int midIRPin = A0;
 
 // Initialize variables
-const float P = .15;
-const float I = 0;
-const float D = 0;
-const byte leftTarget = 10;
-const byte rightTarget = 10;
-int lIR;
-int rIR;
-int leftIR;
-int rightIR;
-int leftAdjust = 800;
-int rightAdjust = 800;
-int adjustCoeff = 1.092;
-int leftMotorSpeed;
-int rightMotorSpeed;
+const float kP = 0.5;
+const float kI = 0.003;
+const float kD = 0;
+int leftSensorAdjust = -14; //use those to calibrate sensors
+int rightSensorAdjust = 0;
+int midSensorAdjust = 0;
 
-byte currentIndex = 0;
-byte pastIndex;
-byte pastPastIndex;
-const int numReadings = 100;
-byte leftReadings[numReadings]; //array of saved analog read inputs
-byte rightReadings[numReadings]; //array of saved analog read inputs
-int leftReadingSum = 0; //use for integral
-int rightReadingSum = 0; //use for integral
-float leftAverage = 0.0;
-float rightAverage = 0.0;
-byte leftError;
-byte rightError;
-byte leftErrors[numReadings];
-byte rightErrors[numReadings];
-int leftErrorSum = 0;
-int rightErrorSum = 0;
-int leftIntegral;
-int rightIntegral;
-int leftDeriv;
-int rightDeriv;
-int timeDelay = 100;
+//TargetSpeed is the power the motors will get if we want the robot to drive straight.
+const byte leftTargetSpeed = 80; // we are using a byte here, because the motorshield
+const byte rightTargetSpeed = 80; // goes from 0-255.
+
+//the target values for the sensors. if those are unchanged the robot will go straight
+//place sensors between black and weight and insert proper readings
+int leftTarget = 560;
+int rightTarget = 560;
+int midTarget = 620; //the darker the sourroundings the higer tis value should be
+
+//leftError is (the reading - the target)
+int leftError;
+int rightError;
+int midError;
+
+int turn;
+
+long integral;
+
+//stuff dor d
+int derivative;
+long i = 1;
+byte k;
+int bPrevError = 0;
+int aPrevError = 0;
+
+//values for motorspeed
+byte leftSpeed;
+byte rightSpeed;
+
+//lightSensorStuff
+int trashL; //used to trash the first reading 
+int trashR;
+int trashMid;
+//left Sensor
+int leftSensor0; // we will meassure 5 times each sensore and only use the average value
+int leftSensor1;
+int leftSensor2;
+int leftSensor3;
+int leftSensor4;
+int leftSensorAvg; //the average value of the raw data
+int leftSensor; //the value which we will actually use avg-offset
+//right Sensor
+int rightSensor0;
+int rightSensor1;
+int rightSensor2;
+int rightSensor3;
+int rightSensor4;
+int rightSensorAvg;
+int rightSensor;
+//This is the only actual PID-Sensor
+int midSensor0;
+int midSensor1;
+int midSensor2;
+int midSensor3;
+int midSensor4;
+int trashM;
+int midSensorAvg;
+int midSensor;
+
+//delta t time loop
+long jetzt = 0;
+int deltaT = 30; //we have to see if this is to high or to low
 
 void setup() {
-  // Open serial
-  Serial.begin(9600);
-  inputString.reserve(200);   //save some space on the Arduino for the user inputted string
+  Serial.begin(9600);           // set up Serial baud to 115200 bps
+  AFMS.begin();  // start motorshield with the default frequency 1.6KHz
+  //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
   
-  AFMS.begin();
+    //We are reading both values and trash them. the first readings are just that.
+    trashL = analogRead(leftIRPin);
+    trashR = analogRead(rightIRPin);
+    trashM = analogRead(midIRPin);
+    // Set motor direction
+      leftMotor->run(FORWARD);
+      rightMotor->run(FORWARD);
+    //  leftMotor->run(BACKWARD);
+    //  rightMotor->run(BACKWARD);
+    integral = 0 ;
   
-  // Fill arrays with zeroes
-  for (byte currentReading = 0; currentReading < numReadings; currentReading ++){
-    leftReadings[currentReading] = 0;
-    rightReadings[currentReading] = 0;
-    leftErrors[currentReading] = 0;
-    rightErrors[currentReading] = 0;
-  }
+  //TODO make tests for all them hardware!
+    Serial.println("Adafruit Motorshield v2 - ready!");
+    Serial.println("All Systems GO!");
 }
 
 void loop() {
-//  // Define IR leftReadings
-  lIR = analogRead(leftIRPin);
-  rIR = analogRead(rightIRPin);
-//  leftIR = map(lIR-880, 820, 980, 20, 40);
-//  rightIR = map(rIR-880, 820, 980, 20, 40);
-  leftIR = analogRead(leftIRPin)-leftAdjust;
-  rightIR = analogRead(rightIRPin)*1.06-rightAdjust;
-  Serial.println(String(leftIR) + " " + String(rightIR) + " " + String(leftMotorSpeed) + " " + String(rightMotorSpeed));
+  //a super time-get-right loop which is fueled by pure magic
+  //pure magic means our prozessor has a sense of time which he will tell us with "millis"
+  //in this loop we get our n-1 readings (the first one always gets trashed) 
+  if((millis() - jetzt) > deltaT){
+    jetzt = millis();  //TODO FIX OVERFLOW for jetzt
+    //getting new values - since i dont know how to proper use an array it looks like that
+    trashL = analogRead(leftIRPin);
+    trashR = analogRead(rightIRPin);
+    trashMid = analogRead(midIRPin);
+    
+  leftSensor0 = analogRead(leftIRPin);
+  leftSensor1 = analogRead(leftIRPin);
+  leftSensor2 = analogRead(leftIRPin);
+  leftSensor3 = analogRead(leftIRPin);
+  leftSensor4 = analogRead(leftIRPin);
+  
+  rightSensor0 = analogRead(rightIRPin);
+  rightSensor1 = analogRead(rightIRPin);
+  rightSensor2 = analogRead(rightIRPin);
+  rightSensor3 = analogRead(rightIRPin);
+  rightSensor4 = analogRead(rightIRPin);
 
-//  leftIR = analogRead(leftIRPin)-leftAdjust;
-//  rightIR = analogRead(rightIRPin)-rightAdjust;
-  
-  // Subtract old reading from sums
-  leftReadingSum -= leftReadings[currentIndex];
-  rightReadingSum -= rightReadings[currentIndex];
-  
-  // Calculate Error
-  leftError = leftTarget- leftReadings[currentIndex];
-  rightError = rightTarget - rightReadings[currentIndex];
-  
-  leftErrorSum -= leftError;
-  rightErrorSum -= rightError;
-  
-  // Add readings to arrays
-  leftReadings[currentIndex] = leftIR;
-  rightReadings[currentIndex] = rightIR;
-  
-  // Add new reading to sums
-  leftReadingSum += leftReadings[currentIndex];
-  rightReadingSum += rightReadings[currentIndex];
-  
-  // Increment array positions
-  currentIndex ++;
-  currentIndex ++;
-  
-  // Revert to beginning of array if index out of bounds
-  if (currentIndex >= numReadings){
-      currentIndex = 0;
-  }
-  if (currentIndex >= numReadings){
-      currentIndex = 0;
-  }
-  
-  // Calculate reading averages
-  leftAverage = leftReadingSum/float(numReadings);
-  rightAverage = rightReadingSum/float(numReadings);
-  
-  // Calculate integral
-  leftIntegral = leftErrorSum * (timeDelay/1000.0);
-  rightIntegral = rightErrorSum * (timeDelay/1000.0);
-  
-  // Calculate past reading indices
-  if (currentIndex - 1 >= 0)
-    pastIndex = currentIndex - 1;
-  else
-    pastIndex = currentIndex -1 + 10;
-  if (currentIndex - 2 >= 0)
-    pastPastIndex = currentIndex - 2;
-  else
-    pastPastIndex = currentIndex -2 + 10;
-  
-  // Calculate derivatives
-  leftDeriv = (leftReadings[pastIndex] - leftReadings[pastPastIndex]) * (timeDelay/1000.0);
-  rightDeriv = (rightReadings[pastIndex] - rightReadings[pastPastIndex]) * (timeDelay/1000.0);
+  midSensor0 = analogRead(midIRPin);
+  midSensor1 = analogRead(midIRPin);
+  midSensor2 = analogRead(midIRPin);
+  midSensor3 = analogRead(midIRPin);
+  midSensor4 = analogRead(midIRPin);
 
-  //Get user input for P
-  serialEvent();
-  if (stringComplete){
-    Serial.println(inputString);
-    P = inputString;
-    inputString = "";         //reset the string to empty
-    stringComplete = false;   //reset the complete boolean to false
-  }
+    
+    //calculate the avg out of the raw sensor data ... again an array would be superbé
+    leftSensorAvg = ((leftSensor0 + leftSensor1 + leftSensor2 +
+                      leftSensor3 + leftSensor4)/5);
+    
+    rightSensorAvg = ((rightSensor0 + rightSensor1 + rightSensor2 +
+                       rightSensor3 + rightSensor4)/5);
 
-  leftDeriv = (leftReadings[pastIndex] - leftReadings[pastPastIndex]) * (timeDelay/1000.0);
-  rightDeriv = (rightReadings[pastIndex] - rightReadings[pastPastIndex]) * (timeDelay/1000.0);
-  
-  // Define motor speeds
-//  leftMotorSpeed = P*rightError + I*rightIntegral + D*rightDeriv;
-//  rightMotorSpeed = P*leftError + I*leftIntegral + D*leftDeriv;
-//  leftMotorSpeed = P*rightError;
-//  rightMotorSpeed = P*leftError;
-  leftMotorSpeed = P*rightIR;
-  rightMotorSpeed = P*leftIR;
-  
-  if (leftMotorSpeed > 255)
-    leftMotorSpeed = 255;
-  else if (leftMotorSpeed < 0)
-    leftMotorSpeed = 0;
-  
-  if (rightMotorSpeed > 255)
-    rightMotorSpeed = 255;
-  else if (rightMotorSpeed < 0)
-    rightMotorSpeed = 0;
-  
-  // Set motor speed
-//  myLeftMotor->setSpeed(leftMotorSpeed);
-//  myRightMotor->setSpeed(rightMotorSpeed);
-  myLeftMotor->setSpeed(leftMotorSpeed);
-  myRightMotor->setSpeed(rightMotorSpeed);
-  
-  // Set motor direction
-//  myLeftMotor->run(FORWARD);
-//  myRightMotor->run(FORWARD);
-  myLeftMotor->run(BACKWARD);
-  myRightMotor->run(BACKWARD);
-  
-  delay(timeDelay);
-}
+    midSensorAvg = ((midSensor0 + midSensor1 + midSensor2 + midSensor3 + midSensor4)/5);
+                       
+    //finally we get our good sensor data
+    leftSensor = leftSensorAvg - leftSensorAdjust;
+    rightSensor = rightSensorAvg - rightSensorAdjust;
+    midSensor = midSensorAvg - midSensorAdjust;
 
-/*
-  SerialEvent occurs whenever a new data comes in the
- hardware serial RX.  This routine is run between each
- time loop() runs, so using delay inside loop can delay
- response.  Multiple bytes of data may be available.
- */
-void serialEvent() {
-  while (Serial.available()) {
-    // get the new byte:
-    char inChar = (char)Serial.read();
-    // add it to the inputString:
-    inputString += inChar;
-    // if the incoming character is a newline, set a flag
-    // so the main loop can do something about it:
-    if (inChar == '\n') {
-      stringComplete = true;
+    
+    leftError = leftTarget - leftSensor;
+    rightError = rightTarget - rightSensor;
+    midError = midTarget - midSensor;
+
+
+    integral = integral + midError;
+
+    //adding the nessesary things for the derivative -Whoppa FlipFlop Style
+    //TODO fix OVERFLOW FOR i
+    i++;
+    k = i % 2; 
+    if(k == 1){
+      midError = aPrevError;
+      derivative = midError - bPrevError;
+      }
+     if (k == 0){
+      midError = bPrevError;
+      derivative = midError - aPrevError;
+       }
     }
+
+
+    //Heres how we adjust the motorspeeds!
+    //from now on on we totally ignore our secondary sensors
+    
+    turn = midError * kP + kI * integral + kD * derivative;
+
+    leftSpeed = leftTargetSpeed + turn;
+    rightSpeed = rightTargetSpeed - turn;
+    
+// HACKED: If speed is > 255 we might want to use the overflow instead of trash it.
+// e.G turn == 300 -> 300-255 = 45 => Motor 1: 255 Motor2: leftSpeed - 45 (instead of just leftSpeed)
+    
+    if (leftSpeed >= 255){
+      leftSpeed == 255;
+    }
+    if (rightSpeed >= 255){
+      rightSpeed == 255;
+    }
+    if (leftSpeed <= 0) {
+      leftSpeed == 0;
+    }
+    if (rightSpeed <= 0){
+      rightSpeed == 0;
+    }
+    
+    //Adjusting the Motorspeeds to get the turn!(via i2c)
+    leftMotor->setSpeed(leftSpeed);
+    rightMotor->setSpeed(rightSpeed);
+
+#ifdef DEBUG
+    Serial.println(String(midError) + " " + String(integral) + " " + String(derivative) + " " + String(turn) + " " + String(leftSpeed) + " " + String(rightSpeed));
+#endif
+    
   }
-}
